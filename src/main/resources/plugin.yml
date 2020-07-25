@@ -1,0 +1,6 @@
+name: IsletopiaBungeeTweaker
+version: ${project.version}
+main: com.molean.isletopiabungeetweaker.IsletopiaBungeeTweaker
+api-version: 1.16
+commands:
+  stp: {}
