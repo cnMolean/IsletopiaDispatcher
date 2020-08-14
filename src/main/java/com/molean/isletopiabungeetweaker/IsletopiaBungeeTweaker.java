@@ -1,21 +1,26 @@
 package com.molean.isletopiabungeetweaker;
 
+import com.google.common.io.ByteArrayDataInput;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import com.molean.isletopianetwork.Client;
 import com.molean.isletopianetwork.Request;
 import com.molean.isletopianetwork.Response;
 import com.molean.isletopianetwork.Server;
 import net.mamoe.mirai.contact.Group;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.jetbrains.annotations.NotNull;
 
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 
-import static com.molean.playerparameter.PlayerParameter.*;
-
-public final class IsletopiaBungeeTweaker extends JavaPlugin {
+public final class IsletopiaBungeeTweaker extends JavaPlugin implements @NotNull PluginMessageListener {
 
     private static IsletopiaBungeeTweaker plugin;
 
@@ -24,11 +29,18 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin {
     }
 
     public static List<String> getSubServers() {
-        return List.of("server1","server2");
+        List<String> subServers = new ArrayList<>();
+        for (String registration : Client.getRegistrations()) {
+            if (!registration.equalsIgnoreCase("dispatcher")) {
+                subServers.add(registration);
+            }
+        }
+        return subServers;
     }
 
     private final Function<Request, Response> function = request -> {
         Response response = new Response();
+        Bukkit.getLogger().info("Received request " + request.getType());
         if (request.getType().equalsIgnoreCase("getPlayerServer")) {
             String player = request.get("player");
             String playerServer = null;
@@ -37,6 +49,10 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin {
                 Request playerRequest = new Request(subServer, "getPlotNumber");
                 playerRequest.set("player", player);
                 Response playerResponse = Client.send(playerRequest);
+                if (playerResponse == null) {
+                    response.setStatus("no response");
+                    Bukkit.getLogger().warning("Request " + player + "'s plot number in " + subServer + " failed.");
+                }
                 int plotNumber = 0;
                 if (playerResponse.getStatus().equalsIgnoreCase("successfully")) {
                     plotNumber = Integer.parseInt(playerResponse.get("return"));
@@ -60,6 +76,10 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin {
             for (String subServer : getSubServers()) {
                 broadcastRequest.setTarget(subServer);
                 Response playersResponse = Client.send(broadcastRequest);
+                if (playersResponse == null) {
+                    Bukkit.getLogger().warning("Request online player list in " + subServer + " failed.");
+                    continue;
+                }
                 String[] players = playersResponse.get("players").split(",");
                 allPlayers.addAll(Arrays.asList(players));
             }
@@ -79,9 +99,14 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin {
                     getLogger().severe("Send chat to " + subServer + " wrongly.");
                 }
             }
-            Group group = Neon.getBot().getGroup(483653595);
-            group.sendMessageAsync("<" + player + "> " + message);
-            response.setStatus("successfully");
+            if (Neon.getBot() != null) {
+                Group group = Neon.getBot().getGroup(483653595);
+                group.sendMessageAsync("<" + player + "> " + message);
+                response.setStatus("successfully");
+            } else {
+                response.setStatus("bot not started");
+            }
+
         } else if (request.getType().equalsIgnoreCase("broadcast")) {
             String message = request.get("message");
             Bukkit.broadcastMessage(message);
@@ -92,38 +117,19 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin {
                 broadcastRequest.setTarget(subServer);
                 Response broadcastResponse = Client.send(broadcastRequest);
                 if (broadcastResponse == null) {
-                    getLogger().severe("Broadcast message to " + subServer + " wrongly.");
+                    getLogger().severe("Broadcast message to " + subServer + " failed.");
                 }
             }
             response.setStatus("successfully");
-        } else if (request.getType().equalsIgnoreCase("getParameter")) {
-            String player = request.getData().get("player");
-            String key = request.getData().get("key");
-            response.setStatus("successfully");
-            response.getData().put("return", getParameter(player, key));
-        } else if (request.getType().equalsIgnoreCase("setParameter")) {
-            String player = request.getData().get("player");
-            String key = request.getData().get("key");
-            String value = request.getData().get("value");
-            setParameter(player, key, value);
-            response.setStatus("successfully");
-        } else if (request.getType().equalsIgnoreCase("addParameter")) {
-            String player = request.getData().get("player");
-            String key = request.getData().get("key");
-            String value = request.getData().get("value");
-            addParameter(player, key, value);
-            response.setStatus("successfully");
-        } else if (request.getType().equalsIgnoreCase("unsetParameter")) {
-            String player = request.getData().get("player");
-            String key = request.getData().get("key");
-            unsetParameter(player, key);
-            response.setStatus("successfully");
-        } else if (request.getType().equalsIgnoreCase("removeParameter")) {
-            String player = request.getData().get("player");
-            String key = request.getData().get("key");
-            String value = request.getData().get("value");
-            removeParameter(player, key, value);
-            response.setStatus("successfully");
+        } else if (request.getType().equalsIgnoreCase("sendMessage")) {
+            for (String subServer : getSubServers()) {
+                request.setTarget(subServer);
+                Response messageResponse = Client.send(request);
+                if (messageResponse.getStatus().equals("successfully")) {
+                    return messageResponse;
+                }
+            }
+            response.setStatus("not online");
         }
         return response;
     };
@@ -131,12 +137,35 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
-        ConfigUtils.setupConfig(this);
-        ConfigUtils.configOuput("parameters.yml");
         new Server().setupNetwork();
         new Client(function).register("dispatcher");
         new AutoSwitchServer();
-//        new Neon();
+        new Neon();
         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        getServer().getMessenger().registerIncomingPluginChannel(this, "BungeeCord", this);
+    }
+
+    @Override
+    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
+        ByteArrayDataInput in = ByteStreams.newDataInput(message);
+        String subchannel = in.readUTF();
+        if (subchannel.equalsIgnoreCase("chat")) {
+            try {
+                short len = in.readShort();
+                byte[] msgbytes = new byte[len];
+                in.readFully(msgbytes);
+                DataInputStream msgin = new DataInputStream(new ByteArrayInputStream(msgbytes));
+                String p = msgin.readUTF();
+                String m = msgin.readUTF();
+                if (Neon.getBot() != null) {
+                    Group group = Neon.getBot().getGroup(483653595);
+                    group.sendMessageAsync("<" + player + "> " + message);
+                }
+
+
+            } catch (IOException exception) {
+                exception.printStackTrace();
+            }
+        }
     }
 }

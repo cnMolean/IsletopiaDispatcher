@@ -39,16 +39,25 @@ public class Neon implements Listener {
                         return;
                     }
                     StringBuilder plainMessage = new StringBuilder();
-                    String nameCard = event.getSender().getNameCard();
-                    MessageChain message = event.getMessage();
-                    for (int i = 0; i < message.size(); i++) {
-                        SingleMessage singleMessage = message.get(i);
+                    String player = event.getSender().getNameCard().replace('§', '&');
+                    MessageChain rawMessage = event.getMessage();
+                    for (int i = 0; i < rawMessage.size(); i++) {
+                        SingleMessage singleMessage = rawMessage.get(i);
                         plainMessage.append(singleMessage.contentToString());
                     }
+                    String message = plainMessage.toString().replace('§', '&');
+                    if (player.length() > 16) {
+                        player = player.substring(0, 16) + "..";
+                    }
+                    if (message.length() > 256) {
+                        message = message.substring(0, 256) + "..";
+                    }
+                    if (message.length() == 0)
+                        return;
                     Request broadcastRequest = new Request();
                     broadcastRequest.setType("chat");
-                    broadcastRequest.set("message", plainMessage.toString());
-                    broadcastRequest.set("player", nameCard);
+                    broadcastRequest.set("message", message);
+                    broadcastRequest.set("player", player);
                     for (String subServer : IsletopiaBungeeTweaker.getSubServers()) {
                         broadcastRequest.setTarget(subServer);
                         Client.send(broadcastRequest);
