@@ -2,7 +2,10 @@ package com.molean.isletopiabungeetweaker;
 
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
+import fr.xephi.authme.api.v3.AuthMeApi;
+import fr.xephi.authme.events.FailedLoginEvent;
 import fr.xephi.authme.events.LoginEvent;
+import fr.xephi.authme.events.RegisterEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -54,8 +57,47 @@ public class AutoSwitchServer implements Listener {
     }
 
     @EventHandler
+    public void onFailedLogin(FailedLoginEvent event) {
+        if (event.getPlayer().getLocale().toLowerCase().startsWith("zh")) {
+            event.getPlayer().sendMessage("§c登录失败, 请检查密码是否正确.");
+        } else {
+            event.getPlayer().sendMessage("§cLogin failed, please check your password.");
+        }
+    }
+
+    @EventHandler
+    public void onRegister(RegisterEvent event) {
+        if (event.getPlayer().getLocale().toLowerCase().startsWith("zh")) {
+            event.getPlayer().sendMessage("§c注册成功, 使用 `/login 密码` 以登录.");
+        } else {
+            event.getPlayer().sendMessage("§cRegister successfully, then use `/login [password]` to login.");
+        }
+    }
+
+    @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         event.setJoinMessage(null);
+        if (AuthMeApi.getInstance().isRegistered(event.getPlayer().getName())) {
+            if (event.getPlayer().getLocale().toLowerCase().startsWith("zh")) {
+                event.getPlayer().sendMessage("§c此用户名已注册, 请输入`/login 密码`以登录.");
+                event.getPlayer().sendMessage("§c如果此用户名并非你注册的, 请更换一个用户名.");
+            } else {
+                event.getPlayer().sendMessage("§cThis username is registered.");
+                event.getPlayer().sendMessage("§cType `/login [password]` to login.");
+                event.getPlayer().sendMessage("§cIf this is not your registration, ");
+                event.getPlayer().sendMessage("§c please consider use another username.");
+            }
+        }else{
+            if (event.getPlayer().getLocale().toLowerCase().startsWith("zh")) {
+                event.getPlayer().sendMessage("§c此用户名未注册, 请输入`/register 密码 确认密码`以注册.");
+                event.getPlayer().sendMessage("§c密码长度为5~30, 不要忘记输入确认密码.");
+            } else {
+                event.getPlayer().sendMessage("§cThis username is not registered.");
+                event.getPlayer().sendMessage("§cPlease use`/register [password] [password]` to register.");
+                event.getPlayer().sendMessage("§cPassword length should between 5~12.");
+                event.getPlayer().sendMessage("§cRemember input second confirm password.");
+            }
+        }
     }
 
     @EventHandler
