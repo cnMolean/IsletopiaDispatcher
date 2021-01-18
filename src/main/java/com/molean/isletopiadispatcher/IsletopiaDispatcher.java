@@ -1,4 +1,4 @@
-package com.molean.isletopiabungeetweaker;
+package com.molean.isletopiadispatcher;
 
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteArrayDataInput;
@@ -15,19 +15,18 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import static org.bukkit.Bukkit.getScheduler;
 
 
-public final class IsletopiaBungeeTweaker extends JavaPlugin implements Listener, PluginMessageListener {
+public final class IsletopiaDispatcher extends JavaPlugin implements Listener, PluginMessageListener {
 
-    private static IsletopiaBungeeTweaker plugin;
+    private static IsletopiaDispatcher plugin;
 
-    public static IsletopiaBungeeTweaker getPlugin() {
+    public static IsletopiaDispatcher getPlugin() {
         return plugin;
     }
 
@@ -37,33 +36,70 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin implements Listener
         return serverName;
     }
 
+    private static final Map<String, Long> serverPlayTime = new HashMap<>();
+
+    public static Map<String, Long> getServerPlayTime() {
+        return new HashMap<>(serverPlayTime);
+    }
+
+    public static String getMinTimeServer() {
+        Long min = Long.MAX_VALUE;
+        String minKey = null;
+        for (String s : serverPlayTime.keySet()) {
+            Long aLong = serverPlayTime.get(s);
+            if (aLong < min) {
+                min = aLong;
+                minKey = s;
+            }
+        }
+        return minKey;
+    }
+
     private static final List<String> onlinePlayers = new ArrayList<>();
 
     public static List<String> getOnlinePlayers() {
-        return onlinePlayers;
+        return new ArrayList<>(onlinePlayers);
     }
 
     private static final List<String> servers = new ArrayList<>();
 
     public static List<String> getServers() {
-        return servers;
+        return new ArrayList<>(servers);
     }
 
 
     @Override
     public void onEnable() {
+        serverName = new File(System.getProperty("user.dir")).getName();
+
         plugin = this;
         new AutoSwitchServer();
+        new PlayerChatTweaker();
+        new TempServer();
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         getServer().getMessenger().registerIncomingPluginChannel(this, "BungeeCord", this);
-        getScheduler().runTaskTimerAsynchronously(this, this::updates, 20, 20);
+        getScheduler().runTaskTimerAsynchronously(this, this::updates, 0, 20);
+        getScheduler().runTaskTimerAsynchronously(this, this::updatePlayTime, 0, 20 * 60);
     }
 
     public void updates() {
         updateOnlinePlayers();
         updateServerName();
         updateServers();
+    }
+
+    public void updatePlayTime() {
+
+        long start = System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000;
+        for (String server : getServers()) {
+            if (!server.startsWith("server"))
+                continue;
+
+            long serverRecentPlayTime = PlayTimeStatisticsDao.getServerRecentPlayTime(server, start);
+            serverPlayTime.put(server, serverRecentPlayTime);
+        }
+
     }
 
     public void updateOnlinePlayers() {
@@ -73,7 +109,7 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin implements Listener
         out.writeUTF("PlayerList");
         Player player = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
         if (player != null)
-            player.sendPluginMessage(IsletopiaBungeeTweaker.getPlugin(), "BungeeCord", out.toByteArray());
+            player.sendPluginMessage(IsletopiaDispatcher.getPlugin(), "BungeeCord", out.toByteArray());
     }
 
     public void updateServerName() {
@@ -82,7 +118,7 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin implements Listener
         out.writeUTF("GetServer");
         Player player = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
         if (player != null)
-            player.sendPluginMessage(IsletopiaBungeeTweaker.getPlugin(), "BungeeCord", out.toByteArray());
+            player.sendPluginMessage(IsletopiaDispatcher.getPlugin(), "BungeeCord", out.toByteArray());
     }
 
     public void updateServers() {
@@ -91,7 +127,7 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin implements Listener
         out.writeUTF("GetServers");
         Player player = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
         if (player != null)
-            player.sendPluginMessage(IsletopiaBungeeTweaker.getPlugin(), "BungeeCord", out.toByteArray());
+            player.sendPluginMessage(IsletopiaDispatcher.getPlugin(), "BungeeCord", out.toByteArray());
     }
 
     @EventHandler
@@ -108,7 +144,7 @@ public final class IsletopiaBungeeTweaker extends JavaPlugin implements Listener
             msgout.writeUTF(event.getPlayer().getUniqueId().toString());
             out.writeShort(msgbytes.toByteArray().length);
             out.write(msgbytes.toByteArray());
-            getServer().sendPluginMessage(IsletopiaBungeeTweaker.getPlugin(), "BungeeCord", out.toByteArray());
+            getServer().sendPluginMessage(IsletopiaDispatcher.getPlugin(), "BungeeCord", out.toByteArray());
         } catch (IOException exception) {
             exception.printStackTrace();
         }

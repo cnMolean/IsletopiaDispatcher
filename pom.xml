@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.molean</groupId>
-    <artifactId>IsletopiaBungeeTweaker</artifactId>
+    <artifactId>IsletopiaDispatcher</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>IsletopiaBungeeTweaker</name>
+    <name>IsletopiaDispatcher</name>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

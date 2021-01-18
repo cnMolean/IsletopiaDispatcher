@@ -1,6 +1,4 @@
-package com.molean.isletopiabungeetweaker;
-
-import com.mysql.cj.jdbc.MysqlConnectionPoolDataSource;
+package com.molean.isletopiadispatcher;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,30 +6,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class ParameterDao {
-    private static final MysqlConnectionPoolDataSource dataSource;
-
-    static {
-        dataSource = new MysqlConnectionPoolDataSource();
-        String url = "jdbc:mysql://localhost/minecraft?useSSL=false&characterEncoding=utf8&serverTimezone=UTC";
-        String username = "molean";
-        String password = "123asd";
-        dataSource.setUrl(url);
-        dataSource.setUser(username);
-        dataSource.setPassword(password);
-    }
-
-    public static Connection getConnection() {
-        Connection connection = null;
-        try {
-            connection = dataSource.getConnection();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        return connection;
-    }
 
     public static String get(String playerName, String key) {
-        try (Connection connection = getConnection()) {
+        try (Connection connection = DataSourceUtils.getConnection()) {
             String sql = "select p_value from isletopia_parameters where player=? and p_key=?";
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             preparedStatement.setString(1, playerName);
@@ -50,7 +27,7 @@ public class ParameterDao {
         if (get(playerName, key) == null) {
             insert(playerName, key, value);
         } else {
-            try (Connection connection = getConnection()) {
+            try (Connection connection = DataSourceUtils.getConnection()) {
                 String sql = "update isletopia_parameters set p_value=? where player=? and p_key=?";
                 PreparedStatement preparedStatement = connection.prepareStatement(sql);
                 preparedStatement.setString(1, value);
@@ -64,7 +41,7 @@ public class ParameterDao {
     }
 
     public static void insert(String playerName, String key, String value) {
-        try (Connection connection = getConnection()) {
+        try (Connection connection = DataSourceUtils.getConnection()) {
             String sql = "insert into isletopia_parameters(player,p_key,p_value) values(?,?,?)";
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             preparedStatement.setString(1, playerName);
