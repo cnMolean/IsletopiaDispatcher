@@ -2,6 +2,3 @@ name: IsletopiaDispatcher
 version: 1.0-SNAPSHOT
 main: com.molean.isletopiadispatcher.IsletopiaDispatcher
 api-version: 1.16
-commands:
-  stp: {}
-  temp: {}

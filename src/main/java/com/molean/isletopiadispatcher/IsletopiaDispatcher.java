@@ -75,7 +75,6 @@ public final class IsletopiaDispatcher extends JavaPlugin implements Listener, P
         plugin = this;
         new AutoSwitchServer();
         new PlayerChatTweaker();
-        new TempServer();
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         getServer().getMessenger().registerIncomingPluginChannel(this, "BungeeCord", this);
@@ -93,8 +92,12 @@ public final class IsletopiaDispatcher extends JavaPlugin implements Listener, P
 
         long start = System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000;
         for (String server : getServers()) {
-            if (!server.startsWith("server"))
+            if (!getServers().contains(server)){
                 continue;
+            }
+            if(!server.startsWith("server")){
+                continue;
+            }
 
             long serverRecentPlayTime = PlayTimeStatisticsDao.getServerRecentPlayTime(server, start);
             serverPlayTime.put(server, serverRecentPlayTime);
